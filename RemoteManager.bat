@@ -1,66 +1,85 @@
-@echo off
 
-REM Check if RPC service is running
-sc query RpcSs | find "RUNNING"
-if not %errorlevel%==0 (
-    echo Starting RPC service...
-    net start RpcSs
-    if %errorlevel%==0 (
-        echo RPC service started successfully.
-    ) else (
-        echo Failed to start RPC service. Please check your service configuration.
-        pause
-        exit /b 1
-    )
-) else (
-    echo RPC service is already running.
+@echo off
+setlocal ENABLEEXTENSIONS ENABLEDELAYEDEXPANSION
+title Remote Management Program
+
+:: -----------------------------
+:: Admin privilege check
+:: -----------------------------
+net session >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo.
+    echo ERROR: This script must be run as Administrator.
+    echo.
+    pause
+    exit /b 1
 )
 
-REM Ensure firewall rules are in place
-echo Configuring firewall rules...
-netsh advfirewall firewall add rule name="RPC" protocol=TCP dir=in localport=135 action=allow
-netsh advfirewall firewall add rule name="RPC" protocol=TCP dir=out localport=135 action=allow
-netsh advfirewall firewall add rule name="RPC Dynamic Ports" protocol=TCP dir=in action=allow
-netsh advfirewall firewall add rule name="RPC Dynamic Ports" protocol=TCP dir=out action=allow
+:: -----------------------------
+:: Check PsExec availability
+:: -----------------------------
+where psexec >nul 2>&1
+if %errorlevel% NEQ 0 (
+    echo.
+    echo ERROR: PsExec not found in PATH.
+    echo Download it from Microsoft Sysinternals.
+    echo.
+    pause
+    exit /b 1
+)
 
+:: -----------------------------
+:: Main menu
+:: -----------------------------
 :menu
 cls
 echo Remote Management Program
-echo ========================
+echo =========================
 echo 1. View Remote System Info
 echo 2. Remote Process List
 echo 3. Remote Services Status
-echo 4. Remote Command Prompt
+echo 4. Remote Command Prompt (PsExec)
 echo 5. Exit
 echo.
 
-set /p choice="Enter your choice (1-5): "
-set /p computer="Enter remote computer name or IP: "
+set /p choice=Enter your choice (1-5): 
 
+if "%choice%"=="5" exit /b 0
+
+set /p computer=Enter remote computer name or IP: 
+if "%computer%"=="" (
+    echo Invalid computer name.
+    timeout /t 2 >nul
+    goto menu
+)
+
+:: -----------------------------
+:: Menu actions
+:: -----------------------------
 if "%choice%"=="1" (
-    systeminfo /s %computer%
+    systeminfo /s "%computer%"
     pause
     goto menu
 )
+
 if "%choice%"=="2" (
-    tasklist /s %computer%
+    tasklist /s "%computer%"
     pause
     goto menu
 )
+
 if "%choice%"=="3" (
-    sc \\%computer% query
+    sc "\\%computer%" query
     pause
     goto menu
 )
+
 if "%choice%"=="4" (
-    psexec \\%computer% cmd
+    psexec "\\%computer%" cmd
     pause
     goto menu
 )
-if "%choice%"=="5" (
-    exit
-) else (
-    echo Invalid choice
-    timeout /t 2
-    goto menu
-)
+
+echo Invalid selection.
+timeout /t 2 >nul
+goto menu
